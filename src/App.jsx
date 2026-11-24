@@ -1393,7 +1393,7 @@ export default function App() {
       </nav>
     </div>
   );
-
+}
 
 function PriceEditorModal({ prices, onSave, onClose }) {
   const [draft, setDraft] = useState(prices);
