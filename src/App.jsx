@@ -290,8 +290,20 @@ export default function App() {
     const updatedOrders = orders.map((o) =>
       o.id === id ? { ...o, paid: !o.paid } : o
     );
+
+    const updatedArchived = archivedBatches.map((batch) => ({
+      ...batch,
+      orders: (batch.orders || []).map((o) =>
+        o.id === id ? { ...o, paid: !o.paid } : o
+      ),
+    }));
+
     setOrders(updatedOrders);
-    persistState({ orders: updatedOrders });
+    setArchivedBatches(updatedArchived);
+    persistState({
+      orders: updatedOrders,
+      archivedBatches: updatedArchived,
+    });
   };
 
   const deleteOrder = (id) => {
@@ -344,13 +356,35 @@ export default function App() {
   const handleCloseBatch = () => {
     if (orders.length === 0 && purchases.length === 0) return;
 
+    const currentBatchOrders = orders.filter((o) => !o.isCarryOver);
+
     const batchRecord = {
       id: Date.now().toString(),
       closedAt: new Date().toISOString(),
       year: new Date().getFullYear(),
-      orders,
+      orders: currentBatchOrders,
       purchases,
     };
+
+    const unpaidCarryOver = orders
+      .filter((o) => !o.paid)
+      .map((o) => ({ ...o, isCarryOver: true }));
+
+    const updatedArchived =
+      currentBatchOrders.length > 0 || purchases.length > 0
+        ? [batchRecord, ...archivedBatches]
+        : archivedBatches;
+
+    setArchivedBatches(updatedArchived);
+    setOrders(unpaidCarryOver);
+    setPurchases([]);
+
+    persistState({
+      archivedBatches: updatedArchived,
+      orders: unpaidCarryOver,
+      purchases: [],
+    });
+  };
 
     const deleteArchivedBatch = (batchId) => {
       const updatedArchived = archivedBatches.filter((b) => b.id !== batchId);
@@ -377,19 +411,21 @@ export default function App() {
     let estimatedMilkLiters = 0;
     const jamByFlavor = {};
 
-    orders.forEach((o) => {
-      const q = Number(o.qty) || 0;
-      if (o.productId === 'bebible_1000') bebible1L += q;
-      if (o.productId === 'bebible_1800') bebible18L += q;
-      if (o.productId === 'griego_800' || o.isGreek) griego800 += q;
+    orders
+      .filter((o) => !o.isCarryOver)
+      .forEach((o) => {
+        const q = Number(o.qty) || 0;
+        if (o.productId === 'bebible_1000') bebible1L += q;
+        if (o.productId === 'bebible_1800') bebible18L += q;
+        if (o.productId === 'griego_800' || o.isGreek) griego800 += q;
 
-      estimatedMilkLiters += q * (o.milkFactor || 1);
+        estimatedMilkLiters += q * (o.milkFactor || 1);
 
-      if (!o.isGreek && o.flavor && o.flavor !== 'Natural') {
-        const liters = q * (o.litersPerUnit || 1);
-        jamByFlavor[o.flavor] = (jamByFlavor[o.flavor] || 0) + liters;
-      }
-    });
+        if (!o.isGreek && o.flavor && o.flavor !== 'Natural') {
+          const liters = q * (o.litersPerUnit || 1);
+          jamByFlavor[o.flavor] = (jamByFlavor[o.flavor] || 0) + liters;
+        }
+      });
 
     return {
       bebible1L,
@@ -401,14 +437,17 @@ export default function App() {
   }, [orders]);
 
   const currentFinancials = useMemo(() => {
-    const totalSales = orders.reduce(
+    const newOrders = orders.filter((o) => !o.isCarryOver);
+    const totalSales = newOrders.reduce(
       (acc, o) => acc + (Number(o.total) || 0),
       0
     );
-    const collected = orders
+    const collected = newOrders
       .filter((o) => o.paid)
       .reduce((acc, o) => acc + (Number(o.total) || 0), 0);
-    const pending = totalSales - collected;
+    const pending = orders
+      .filter((o) => !o.paid)
+      .reduce((acc, o) => acc + (Number(o.total) || 0), 0);
     const totalExpenses = purchases.reduce(
       (acc, p) => acc + (Number(p.cost) || 0),
       0
@@ -811,6 +850,12 @@ export default function App() {
                         <span className="text-xs font-extrabold px-2 py-0.5 rounded-full bg-blue-50 text-[#2E4B9E]">
                           {o.qty}x
                         </span>
+
+                        {o.isCarryOver && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                            Saldo anterior
+                          </span>
+                        )}
                         {o.isSpecialPrice && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
                             Precio especial
