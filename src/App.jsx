@@ -352,6 +352,12 @@ export default function App() {
       purchases,
     };
 
+    const deleteArchivedBatch = (batchId) => {
+      const updatedArchived = archivedBatches.filter((b) => b.id !== batchId);
+      setArchivedBatches(updatedArchived);
+      persistState({ archivedBatches: updatedArchived });
+    };
+
     const updatedArchived = [batchRecord, ...archivedBatches];
     setArchivedBatches(updatedArchived);
     setOrders([]);
@@ -1212,6 +1218,100 @@ export default function App() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+            <div className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-sm space-y-3">
+              <h3 className="text-sm font-black text-[#2E4B9E] uppercase tracking-wide flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-emerald-600" /> Tandas
+                Archivadas ({selectedYear})
+              </h3>
+
+              {archivedBatches.filter(
+                (b) =>
+                  (b.year || new Date(b.closedAt).getFullYear()) ===
+                  selectedYear
+              ).length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-4">
+                  No hay tandas archivadas en {selectedYear}.
+                </p>
+              ) : (
+                <div className="space-y-2.5">
+                  {archivedBatches
+                    .filter(
+                      (b) =>
+                        (b.year || new Date(b.closedAt).getFullYear()) ===
+                        selectedYear
+                    )
+                    .map((batch) => {
+                      const batchTotal = (batch.orders || []).reduce(
+                        (sum, o) => sum + (Number(o.total) || 0),
+                        0
+                      );
+                      const batchDate = new Date(
+                        batch.closedAt
+                      ).toLocaleDateString('es-CO', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                      });
+
+                      return (
+                        <details
+                          key={batch.id}
+                          className="bg-slate-50 rounded-2xl border border-slate-200/80 p-3 group"
+                        >
+                          <summary className="flex items-center justify-between cursor-pointer list-none">
+                            <div>
+                              <div className="font-black text-sm text-slate-900">
+                                Tanda {batchDate}
+                              </div>
+                              <div className="text-[11px] font-semibold text-slate-500">
+                                {(batch.orders || []).length} pedidos •{' '}
+                                {formatCOP(batchTotal)}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold text-[#2E4B9E] underline">
+                                Ver detalle
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  deleteArchivedBatch(batch.id);
+                                }}
+                                className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                                title="Eliminar tanda archivada"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </summary>
+
+                          <div className="mt-3 pt-2.5 border-t border-slate-200 space-y-1.5">
+                            {(batch.orders || []).map((o) => (
+                              <div
+                                key={o.id}
+                                className="flex items-center justify-between text-xs bg-white p-2 rounded-xl border border-slate-100"
+                              >
+                                <div>
+                                  <span className="font-bold text-slate-800">
+                                    {o.clientName}
+                                  </span>{' '}
+                                  <span className="text-slate-500">
+                                    ({o.qty}x {o.productName} - {o.flavor})
+                                  </span>
+                                </div>
+                                <span className="font-black text-slate-900">
+                                  {formatCOP(o.total)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      );
+                    })}
                 </div>
               )}
             </div>
