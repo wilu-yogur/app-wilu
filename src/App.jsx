@@ -386,22 +386,10 @@ export default function App() {
     });
   };
 
-    const deleteArchivedBatch = (batchId) => {
-      const updatedArchived = archivedBatches.filter((b) => b.id !== batchId);
-      setArchivedBatches(updatedArchived);
-      persistState({ archivedBatches: updatedArchived });
-    };
-
-    const updatedArchived = [batchRecord, ...archivedBatches];
+  const deleteArchivedBatch = (batchId) => {
+    const updatedArchived = archivedBatches.filter((b) => b.id !== batchId);
     setArchivedBatches(updatedArchived);
-    setOrders([]);
-    setPurchases([]);
-
-    persistState({
-      archivedBatches: updatedArchived,
-      orders: [],
-      purchases: [],
-    });
+    persistState({ archivedBatches: updatedArchived });
   };
 
   const productionStats = useMemo(() => {
@@ -459,10 +447,12 @@ export default function App() {
 
   const annualStats = useMemo(() => {
     const allOrders = [
-      ...orders.map((o) => ({
-        ...o,
-        year: o.year || new Date(o.createdAt || Date.now()).getFullYear(),
-      })),
+      ...orders
+        .filter((o) => !o.isCarryOver)
+        .map((o) => ({
+          ...o,
+          year: o.year || new Date(o.createdAt || Date.now()).getFullYear(),
+        })),
       ...archivedBatches.flatMap((b) =>
         (b.orders || []).map((o) => ({
           ...o,
